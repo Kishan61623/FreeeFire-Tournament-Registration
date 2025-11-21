@@ -6,7 +6,6 @@
     <title>Free Fire Max Tournament Registration</title>
     
     <style>
-        /* --- STYLES REMAINING FROM ORIGINAL CODE --- */
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f4f4f9;
@@ -70,9 +69,6 @@
         button:hover {
             background-color: #4cae4c;
         }
-        /* The status div styling is no longer strictly necessary, 
-           as FormSubmit handles the success/error page redirect, 
-           but it's kept for potential future use. */
         #status {
             text-align: center;
             margin-top: 20px;
@@ -96,45 +92,24 @@
 </head>
 <body>
 
-    <form action="https://formsubmit.co/k94909517@gmail.com" method="POST" id="registrationForm">
+    <form id="registrationForm" method="POST" action="https://formspree.io/f/mblblaba">
         <h2>Free Fire Max Tournament Registration 🎮</h2>
         
         <label for="userName">1. Your Name (Team Captain):</label>
-        <input type="text" id="userName" name="Team Captain Name" required placeholder="Enter your full name">
+        <input type="text" id="userName" name="userName" required placeholder="Enter your full name">
 
         <label for="squadName">2. Squad Name:</label>
-        <input type="text" id="squadName" name="Squad Name" required placeholder="e.g., The Elite Killers">
+        <input type="text" id="squadName" name="squadName" required placeholder="e.g., The Elite Killers">
 
         <label for="mobileNo">3. Mobile No. (10 Digits):</label>
-        <input type="tel" id="mobileNo" name="Mobile No." pattern="[0-9]{10}" required title="Mobile number must be 10 digits only" placeholder="e.g., 9876543210">
+        <input type="tel" id="mobileNo" name="mobileNo" pattern="[0-9]{10}" required title="Mobile number must be 10 digits only" placeholder="e.g., 9876543210">
 
-        <input type="hidden" name="_next" value="https://YOUR_GITHUB_PAGES_URL/index.html?success=true">
-        <input type="hidden" name="_subject" value="New Free Fire Registration: [Squad Name]">
-        
         <button type="submit">Register Squad</button>
+        
+        <input type="hidden" name="_subject" value="New Free Fire Squad Registration">
     </form>
     
     <div id="status"></div>
 
-    <script>
-        // --- JAVASCRIPT REVISION ---
-        // 1. All IndexedDB code is removed as the data is now handled by FormSubmit.
-        // 2. A simple DOMContentLoaded listener is used to check for a successful redirect.
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const statusDiv = document.getElementById('status');
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            // This checks for the '?success=true' parameter, which indicates FormSubmit redirected back.
-            if (urlParams.get('success') === 'true') {
-                statusDiv.textContent = '✅ Registration successful! Check your email for confirmation.';
-                statusDiv.className = 'success';
-                // Clean the URL history so the message doesn't persist on refresh
-                history.replaceState(null, null, window.location.pathname);
-            }
-        });
-    </script>
-
-</body>
+    </body>
 </html>
-
