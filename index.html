@@ -14,8 +14,9 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            background-image: url('data:image/svg+xml;utf8,...FF</text></svg>');
             margin: 0;
+            /* Background pattern for theme */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="10" y="50" font-family="Impact" font-size="20" fill="rgba(217, 83, 79, 0.1)">FF</text></svg>');
             background-repeat: repeat;
         }
         #registrationForm {
@@ -91,7 +92,7 @@
 </head>
 <body>
 
-    <form id="registrationForm" method="POST" action="https://formspree.io/f/mblblaba">
+    <form id="registrationForm">
         <h2>Free Fire Max Tournament Registration 🎮</h2>
         
         <label for="userName">1. Your Name (Team Captain):</label>
@@ -104,11 +105,223 @@
         <input type="tel" id="mobileNo" name="mobileNo" pattern="[0-9]{10}" required title="Mobile number must be 10 digits only" placeholder="e.g., 9876543210">
 
         <button type="submit">Register Squad</button>
-        
-        <input type="hidden" name="_subject" value="New Free Fire Squad Registration">
     </form>
     
     <div id="status"></div>
 
-    </body>
+    <script>
+        // Database Configuration
+        const DB_NAME = 'FFMaxTournamentDB';
+        const DB_VERSION = 2; 
+        const STORE_NAME = 'registrations';
+
+        let db;
+
+        // 1. IndexedDB Initialization with Robust Error Handling and Unique Indexes
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                // Fix for resource conflicts: Close existing connection if open
+                if (db) {
+                    db.close();
+                }
+                
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = (event) => {
+                    console.error('IndexedDB failed to open:', event.target.error);
+                    reject('Database failed to open or upgrade. Check browser permissions.');
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                
+                // NEW: Handler for when the upgrade is blocked (e.g., another tab is open)
+                request.onblocked = () => {
+                     console.error('Database upgrade blocked!');
+                     reject('Database is blocked by another tab/window. Please close all other instances of this page and try again.');
+                };
+
+                // Create the object store and unique indexes (only on creation/upgrade)
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    let store;
+
+                    if (db.objectStoreNames.contains(STORE_NAME)) {
+                        store = event.target.transaction.objectStore(STORE_NAME);
+                    } else {
+                        store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    }
+
+                    // Create Unique Indexes to prevent duplicates
+                    if (!store.indexNames.contains('squadNameIndex')) {
+                        store.createIndex('squadNameIndex', 'squadName', { unique: true });
+                    }
+                    if (!store.indexNames.contains('mobileNoIndex')) {
+                        store.createIndex('mobileNoIndex', 'mobileNo', { unique: true });
+                    }
+                    console.log("Database updated with unique indexes.");
+                };
+            });
+        }
+
+        // 2. Duplicate Check Function
+        async function checkDuplicate(indexName, value) {
+            await openDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const index = store.index(indexName);
+
+                const request = index.get(value);
+
+                request.onsuccess = (event) => {
+                    if (event.target.result) {
+                        resolve(true); // Duplicate found
+                    } else {
+                        resolve(false); // No duplicate found
+                    }
+                };
+
+                request.onerror = (event) => {
+                    console.error('Duplicate check error:', event.target.error);
+                    reject(`Failed to check for duplicate data.`);
+                };
+            });
+        }
+
+        // 3. Data Storage
+        async function storeData(data) {
+            await openDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.add(data);
+
+                request.onsuccess = () => {
+                    resolve('Registration successful!');
+                };
+
+                request.onerror = (event) => {
+                    console.error('Store error:', event.target.error);
+                    reject('Registration failed to store data.');
+                };
+            });
+        }
+
+        // 4. CSV Generation
+        async function generateCSV() {
+            await openDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = (event) => {
+                    const data = event.target.result;
+
+                    if (data.length === 0) {
+                        console.log('CSV Export: No data to export.');
+                        return resolve('');
+                    }
+
+                    // Define CSV headers
+                    const headers = ['ID', 'Name', 'Squad Name', 'Mobile No.', 'Timestamp'];
+                    let csv = headers.join(',') + '\n';
+
+                    // Add data rows, wrapping values in quotes to handle commas
+                    data.forEach(item => {
+                        const row = [
+                            item.id,
+                            `"${item.userName.replace(/"/g, '""')}"`,
+                            `"${item.squadName.replace(/"/g, '""')}"`,
+                            `"${item.mobileNo}"`,
+                            `"${item.timestamp}"`
+                        ].join(',');
+                        csv += row + '\n';
+                    });
+
+                    // Log the CSV data to the console for easy copying
+                    console.log("=========================================");
+                    console.log("--- GENERATED CSV DATA (Copy this!) ---");
+                    console.log("=========================================");
+                    console.log(csv);
+                    console.log("=========================================");
+                    
+                    resolve(csv);
+                };
+
+                request.onerror = (event) => {
+                    console.error('Error fetching data for CSV:', event.target.error);
+                    reject('Could not generate CSV.');
+                };
+            });
+        }
+
+        // 5. Form Submission Handler 
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('registrationForm');
+            const statusDiv = document.getElementById('status');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const squadName = document.getElementById('squadName').value;
+                const mobileNo = document.getElementById('mobileNo').value;
+
+                const formData = {
+                    userName: document.getElementById('userName').value,
+                    squadName: squadName,
+                    mobileNo: mobileNo,
+                    timestamp: new Date().toISOString() 
+                };
+
+                statusDiv.textContent = 'Checking for duplicates and registering...';
+                statusDiv.className = '';
+
+                try {
+                    // Check 1: Duplicate Squad Name
+                    const isSquadDuplicate = await checkDuplicate('squadNameIndex', squadName);
+                    if (isSquadDuplicate) {
+                        statusDiv.textContent = `❌ Registration failed: Squad Name '${squadName}' is already registered.`;
+                        statusDiv.className = 'error';
+                        return; // Stop registration
+                    }
+
+                    // Check 2: Duplicate Mobile Number
+                    const isMobileDuplicate = await checkDuplicate('mobileNoIndex', mobileNo);
+                    if (isMobileDuplicate) {
+                        statusDiv.textContent = `❌ Registration failed: Mobile Number '${mobileNo}' is already used.`;
+                        statusDiv.className = 'error';
+                        return; // Stop registration
+                    }
+
+                    // If both checks pass, proceed with storage
+                    await storeData(formData);
+                    statusDiv.textContent = '✅ Registration successful! Your squad is listed.';
+                    statusDiv.className = 'success';
+                    form.reset(); // Clear the form
+
+                    // Regenerate and log the full CSV data
+                    await generateCSV();
+
+                } catch (error) {
+                    statusDiv.textContent = `❌ Error in registration process: ${error}`;
+                    statusDiv.className = 'error';
+                    console.error(error);
+                }
+            });
+
+            // Initial DB check on page load
+            openDB()
+                .then(() => console.log("IndexedDB Initialized Successfully (Version: " + DB_VERSION + ")."))
+                .catch(err => {
+                    statusDiv.textContent = `Error initializing database: ${err}. Registration may fail.`;
+                    statusDiv.className = 'error';
+                });
+        });
+    </script>
+
+</body>
 </html>
